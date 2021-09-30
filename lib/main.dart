@@ -1,5 +1,24 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+FlutterLocalNotificationsPlugin();
+
+const AndroidNotificationChannel channel = AndroidNotificationChannel(
+  'high_importance_channel', // id
+  'High Importance Notifications', // title
+  'This channel is used for important notifications.', // description
+  importance: Importance.high,
+);
+
+const IOSNotificationDetails iOSNotificationDetails = IOSNotificationDetails(
+  // sound: 'example.mp3',
+    presentAlert: true,
+    presentBadge: true,
+    presentSound: true
+);
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,6 +49,60 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
 
   String _text = '';
+  bool _requested = false;
+  bool _fetching = false;
+  late NotificationSettings _settings;
+  FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
+
+  @override
+  void initState() {
+    requestPermissions();
+    _firebaseMessaging.getToken().then((String? token) {
+      print("$token");
+    });
+
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      print("フォアグラウンドでメッセージを受け取りました");
+      RemoteNotification? notification = message.notification;
+      AndroidNotification? android = message.notification?.android;
+
+      if (notification != null) {
+        print(notification.title);
+        flutterLocalNotificationsPlugin.show(
+            notification.hashCode,
+            notification.title,
+            notification.body,
+            NotificationDetails(
+                android: AndroidNotificationDetails(
+                  channel.id,
+                  channel.name,
+                  channel.description,
+                  icon: 'launch_background',
+                ),
+                iOS: iOSNotificationDetails
+            ));
+      }
+    });
+    super.initState();
+  }
+
+  Future<void> requestPermissions() async {
+    setState(() {
+      _fetching = true;
+    });
+
+    final settings = await FirebaseMessaging.instance.requestPermission(
+      announcement: true,
+      carPlay: true,
+      criticalAlert: true,
+    );
+
+    setState(() {
+      _requested = true;
+      _fetching = false;
+      _settings = settings;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
