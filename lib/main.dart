@@ -1,6 +1,9 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   runApp(MyApp());
 }
 
@@ -48,7 +51,6 @@ class _MyHomePageState extends State<MyHomePage> {
                   setState(() {
                     _text = text;
                   });
-                  //todo: プッシュ通知を飛ばす
                   Navigator.push(
                       context,
                       MaterialPageRoute(builder: (context) => NextPage(text: _text,),
