@@ -65,9 +65,7 @@ class _MyHomePageState extends State<MyHomePage> {
       print("フォアグラウンドでメッセージを受け取りました");
       RemoteNotification? notification = message.notification;
       AndroidNotification? android = message.notification?.android;
-
       if (notification != null) {
-        print(notification.title);
         flutterLocalNotificationsPlugin.show(
             notification.hashCode,
             notification.title,
@@ -77,7 +75,8 @@ class _MyHomePageState extends State<MyHomePage> {
                   channel.id,
                   channel.name,
                   channel.description,
-                  icon: 'launch_background',
+                  // importance: Importance.high,
+                  // priority: Priority.high,
                 ),
                 iOS: iOSNotificationDetails
             ));
@@ -87,14 +86,18 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<void> requestPermissions() async {
-    setState(() {
-      _fetching = true;
-    });
 
     final settings = await FirebaseMessaging.instance.requestPermission(
       announcement: true,
       carPlay: true,
       criticalAlert: true,
+    );
+
+    await flutterLocalNotificationsPlugin.initialize(
+        InitializationSettings(
+          iOS: IOSInitializationSettings(),
+          android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+        )
     );
 
     setState(() {
