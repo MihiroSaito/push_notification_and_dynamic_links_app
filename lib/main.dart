@@ -1,3 +1,4 @@
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -51,14 +52,17 @@ class _MyHomePageState extends State<MyHomePage> {
   String _text = '';
   bool _requested = false;
   bool _fetching = false;
+  late String token;
   late NotificationSettings _settings;
   FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
+  FirebaseFunctions functions = FirebaseFunctions.instance;
 
   @override
   void initState() {
     requestPermissions();
-    _firebaseMessaging.getToken().then((String? token) {
-      print("$token");
+    _firebaseMessaging.getToken().then((String? _token) {
+      print("$_token");
+      token = _token!;
     });
 
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
@@ -107,6 +111,20 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  Future<void> sendPushNotification(String body) async {
+    HttpsCallable callable = FirebaseFunctions.instanceFor(region: 'asia-northeast1').httpsCallable('sendPushNotifications');
+    try {
+      final results = await callable.call(<String, dynamic>{
+        'title': 'アプリからの通知',
+        'body': '$body',
+        'token': '$token'
+      });
+      print(results);
+    } catch(e) {
+      print(e);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -132,6 +150,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       MaterialPageRoute(builder: (context) => NextPage(text: _text,),
                       )
                   );
+                  sendPushNotification(text);
                 },
               ),
             )
