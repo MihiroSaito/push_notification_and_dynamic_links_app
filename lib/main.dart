@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -57,13 +59,47 @@ class _MyHomePageState extends State<MyHomePage> {
   FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
   FirebaseFunctions functions = FirebaseFunctions.instance;
 
+  Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+    WidgetsBinding.instance!.addPostFrameCallback((_) async {
+      // Build後の実行した処理
+      final Map<String, dynamic> map = jsonDecode(message.data['data']);
+      if(map['to'] == 'NextPage'){
+        final _text = message.notification!.body?? '';
+        Navigator.push(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (context, animation1, animation2) => NextPage(text: _text,),
+            transitionDuration: Duration.zero,
+          ),
+        );
+      }
+    });
+  }
+
+  Future<void> setupInteractedMessage() async {
+
+    /// アプリを終了している状態で通知を押し、開いたときに通知データを受け取る
+    RemoteMessage? initialMessage =
+    await FirebaseMessaging.instance.getInitialMessage();
+    
+    if (initialMessage != null) {
+      _firebaseMessagingBackgroundHandler(initialMessage);
+    }
+
+    /// アプリが終了していない（バックグラウンド）の状態で通知をクリックした時に呼ばれる
+    FirebaseMessaging.onMessageOpenedApp.listen(_firebaseMessagingBackgroundHandler);
+  }
+
   @override
   void initState() {
     requestPermissions();
     _firebaseMessaging.getToken().then((String? _token) {
       print("$_token");
-      token = _token!;
+      // token = _token!;
+      token = 'cWgH1QV9GkfKp0UQ7E0adw:APA91bGyHIQflhO9-uLibkkZ46N4Oao2dopLPFA1_r0OuVUyDJkoVv1fznkBlXh9Bgg4hZ4whzDueRomSG7S2oGrcrT7I3PnjfSIuiGLN7ff7zZ2DB9oerktr3basse53vLPMbt8EsfO';
     });
+
+    setupInteractedMessage();
 
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       print("フォアグラウンドでメッセージを受け取りました");
