@@ -1,10 +1,15 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
+import 'dynamic_links_service.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
 FlutterLocalNotificationsPlugin();
@@ -49,20 +54,19 @@ class MyHomePage extends StatefulWidget {
   _MyHomePageState createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
+class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
 
   String _text = '';
-  bool _requested = false;
-  bool _fetching = false;
   late String token;
-  late NotificationSettings _settings;
   FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
   FirebaseFunctions functions = FirebaseFunctions.instance;
+  final DynamicLinkService _dynamicLinkService = DynamicLinkService();
+  Timer? _timerLink;
 
   Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     WidgetsBinding.instance!.addPostFrameCallback((_) async {
       // Build後の実行した処理
-      final Map<String, dynamic> map = jsonDecode(message.data['data']);
+      final Map<String, dynamic> map = await jsonDecode(message.data['data']);
       if(map['to'] == 'NextPage'){
         final _text = message.notification!.body?? '';
         Navigator.push(
@@ -81,7 +85,7 @@ class _MyHomePageState extends State<MyHomePage> {
     /// アプリを終了している状態で通知を押し、開いたときに通知データを受け取る
     RemoteMessage? initialMessage =
     await FirebaseMessaging.instance.getInitialMessage();
-    
+
     if (initialMessage != null) {
       _firebaseMessagingBackgroundHandler(initialMessage);
     }
@@ -95,8 +99,8 @@ class _MyHomePageState extends State<MyHomePage> {
     requestPermissions();
     _firebaseMessaging.getToken().then((String? _token) {
       print("$_token");
-      // token = _token!;
-      token = 'cWgH1QV9GkfKp0UQ7E0adw:APA91bGyHIQflhO9-uLibkkZ46N4Oao2dopLPFA1_r0OuVUyDJkoVv1fznkBlXh9Bgg4hZ4whzDueRomSG7S2oGrcrT7I3PnjfSIuiGLN7ff7zZ2DB9oerktr3basse53vLPMbt8EsfO';
+      token = _token!;
+      // token = 'cWgH1QV9GkfKp0UQ7E0adw:APA91bGyHIQflhO9-uLibkkZ46N4Oao2dopLPFA1_r0OuVUyDJkoVv1fznkBlXh9Bgg4hZ4whzDueRomSG7S2oGrcrT7I3PnjfSIuiGLN7ff7zZ2DB9oerktr3basse53vLPMbt8EsfO';
     });
 
     setupInteractedMessage();
@@ -122,6 +126,9 @@ class _MyHomePageState extends State<MyHomePage> {
             ));
       }
     });
+
+    WidgetsBinding.instance!.addObserver(this);
+
     super.initState();
   }
 
@@ -140,11 +147,7 @@ class _MyHomePageState extends State<MyHomePage> {
         )
     );
 
-    setState(() {
-      _requested = true;
-      _fetching = false;
-      _settings = settings;
-    });
+    print(settings);
   }
 
   Future<void> sendPushNotification(String body) async {
@@ -159,6 +162,27 @@ class _MyHomePageState extends State<MyHomePage> {
     } catch(e) {
       print(e);
     }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _timerLink = Timer(
+        const Duration(milliseconds: 1000),
+            () {
+          _dynamicLinkService.retrieveDynamicLink(context);
+        },
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance!.removeObserver(this);
+    if (_timerLink != null) {
+      _timerLink!.cancel();
+    }
+    super.dispose();
   }
 
   @override
@@ -191,6 +215,31 @@ class _MyHomePageState extends State<MyHomePage> {
               ),
             )
           ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          final Uri uri = await _dynamicLinkService.createDynamicLink(id: 'hrhrrwhrje');
+          showDialog(
+            context: context,
+            builder: (context) {
+              return GestureDetector(
+                onLongPress: () async {
+                  final data = ClipboardData(text: uri.toString());
+                  await Clipboard.setData(data);
+                  print("コピーしたよ");
+                },
+                child: AlertDialog(
+                  content: Text(
+                    uri.toString()
+                  ),
+                ),
+              );
+            },
+          );
+        },
+        child: Icon(
+          CupertinoIcons.add
         ),
       ),
     );
